@@ -44,7 +44,7 @@ export const useApp = create<AppState>((set, get) => ({
   highlighted: new Set(),
   compare: null,
   presentation: false,
-  theme: "dark",
+  theme: "light",
   loadMeta: async () => {
     const [taxonomy, config] = await Promise.all([api.taxonomy(), api.config()]);
     set({ taxonomy, config });

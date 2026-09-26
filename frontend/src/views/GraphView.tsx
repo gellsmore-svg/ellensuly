@@ -6,7 +6,11 @@ import { GraphCanvas } from "../graph/GraphCanvas";
 import { useApp } from "../state/store";
 import { LENSES } from "../graph/lenses";
 
-export function GraphView({ presentation = false }: { presentation?: boolean }) {
+export function GraphView({
+  presentation = false,
+}: {
+  presentation?: boolean;
+}) {
   const { graphId } = useParams();
   const loadGraph = useApp((s) => s.loadGraph);
   const setLens = useApp((s) => s.setLens);
@@ -22,7 +26,12 @@ export function GraphView({ presentation = false }: { presentation?: boolean }) 
   useEffect(() => {
     togglePresentation(presentation);
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      )
+        return;
       const lens = LENSES.find((l) => l.key === e.key);
       if (lens) setLens(lens.id);
       if (e.key === "Escape") useApp.getState().select(null);
@@ -31,16 +40,38 @@ export function GraphView({ presentation = false }: { presentation?: boolean }) 
     return () => window.removeEventListener("keydown", onKey);
   }, [presentation, setLens, togglePresentation]);
 
-  if (loading && !bundle) return <div className="page">Loading the decision graph…</div>;
+  if (loading && !bundle)
+    return <div className="page">Loading the decision graph…</div>;
   if (error) return <div className="page">Could not load graph: {error}</div>;
   if (!bundle) return <div className="page">No graph selected.</div>;
 
   return (
-    <div className={`workspace ${presentation ? "presentation" : ""}`}>
-      <SrOnlyStyle />
-      <GraphCanvas presentation={presentation} />
-      <GraphText />
-      {!presentation && <Drawer />}
-    </div>
+    <section className={`graph-page ${presentation ? "is-presenting" : ""}`}>
+      {!presentation && (
+        <div className="graph-heading">
+          <div>
+            <div className="kicker">DECISION LANDSCAPE</div>
+            <h1>{bundle.graph.title}</h1>
+          </div>
+          <div className="graph-counts">
+            <span>
+              <strong>{bundle.exposures.length}</strong> exposures
+            </span>
+            <span>
+              <strong>{bundle.actions.length}</strong> actions
+            </span>
+            <span>
+              <strong>{bundle.relationships.length}</strong> connections
+            </span>
+          </div>
+        </div>
+      )}
+      <div className={`workspace ${presentation ? "presentation" : ""}`}>
+        <SrOnlyStyle />
+        <GraphCanvas presentation={presentation} />
+        <GraphText />
+        {!presentation && <Drawer />}
+      </div>
+    </section>
   );
 }

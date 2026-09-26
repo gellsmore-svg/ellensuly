@@ -20,26 +20,34 @@ export function Composer({
 
   if (exposureId) {
     return (
-      <details open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
+      <details
+        open={open}
+        onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
+      >
         <summary>Add a response</summary>
         <form
           className="field"
           onSubmit={async (e: FormEvent<HTMLFormElement>) => {
             e.preventDefault();
-            const fd = new FormData(e.currentTarget);
+            const form = e.currentTarget;
+            const fd = new FormData(form);
             await api.createAction(graphId, {
               title: fd.get("title"),
               treatment_category: fd.get("treatment_category"),
               description: fd.get("description"),
               in_response_to: exposureId,
             });
-            e.currentTarget.reset();
+            form.reset();
             await loadGraph(graphId);
           }}
         >
           <label>
             Action
-            <input name="title" required placeholder="e.g. Add a second supplier" />
+            <input
+              name="title"
+              required
+              placeholder="e.g. Add a second supplier"
+            />
           </label>
           <label>
             Treatment
@@ -68,8 +76,8 @@ export function Composer({
       <details>
         <summary>Add a resulting risk</summary>
         <p className="help">
-          Create a new risk, reuse a canonical risk as a new exposure, or converge on an existing
-          exposure in this graph.
+          Create a new risk, reuse a canonical risk as a new exposure, or
+          converge on an existing exposure in this graph.
         </p>
         <ResultingForm graphId={graphId} actionId={actionId} />
       </details>
@@ -83,15 +91,16 @@ export function Composer({
         className="field"
         onSubmit={async (e) => {
           e.preventDefault();
-          const fd = new FormData(e.currentTarget);
+          const form = e.currentTarget;
+          const fd = new FormData(form);
           await api.createExposure(graphId, {
-            new_risk: { title: fd.get("title"), description: fd.get("description") },
+            new_risk: { title: fd.get("title") },
             contextual_description: fd.get("context"),
             likelihood: Number(fd.get("likelihood") || 3),
             impact: { overall: Number(fd.get("impact") || 3) },
             as_focal: true,
           });
-          e.currentTarget.reset();
+          form.reset();
           await loadGraph(graphId);
         }}
       >
@@ -101,16 +110,31 @@ export function Composer({
         </label>
         <label>
           In this context
-          <input name="context" placeholder="How it shows up in this decision" />
+          <input
+            name="context"
+            placeholder="How it shows up in this decision"
+          />
         </label>
         <div className="row">
           <label>
             Likelihood
-            <input name="likelihood" type="number" min={1} max={5} defaultValue={3} />
+            <input
+              name="likelihood"
+              type="number"
+              min={1}
+              max={5}
+              defaultValue={3}
+            />
           </label>
           <label>
             Impact
-            <input name="impact" type="number" min={1} max={5} defaultValue={3} />
+            <input
+              name="impact"
+              type="number"
+              min={1}
+              max={5}
+              defaultValue={3}
+            />
           </label>
         </div>
         <button className="btn primary" type="submit">
@@ -121,13 +145,19 @@ export function Composer({
   );
 }
 
-function ResultingForm({ graphId, actionId }: { graphId: string; actionId: string }) {
+function ResultingForm({
+  graphId,
+  actionId,
+}: {
+  graphId: string;
+  actionId: string;
+}) {
   const loadGraph = useApp((s) => s.loadGraph);
   const taxonomy = useApp((s) => s.taxonomy)!;
   const bundle = useApp((s) => s.bundle)!;
-  const [mode, setMode] = useState<"new_risk" | "existing_risk_new_exposure" | "existing_exposure">(
-    "new_risk",
-  );
+  const [mode, setMode] = useState<
+    "new_risk" | "existing_risk_new_exposure" | "existing_exposure"
+  >("new_risk");
   return (
     <form
       className="field"
@@ -139,9 +169,16 @@ function ResultingForm({ graphId, actionId }: { graphId: string; actionId: strin
           mode,
           semantics: fd.get("semantics"),
           custom_label: fd.get("custom_label"),
-          new_risk: mode === "new_risk" ? { title: fd.get("title") } : undefined,
-          existing_risk_id: mode === "existing_risk_new_exposure" ? fd.get("existing_risk_id") : undefined,
-          existing_exposure_id: mode === "existing_exposure" ? fd.get("existing_exposure_id") : undefined,
+          new_risk:
+            mode === "new_risk" ? { title: fd.get("title") } : undefined,
+          existing_risk_id:
+            mode === "existing_risk_new_exposure"
+              ? fd.get("existing_risk_id")
+              : undefined,
+          existing_exposure_id:
+            mode === "existing_exposure"
+              ? fd.get("existing_exposure_id")
+              : undefined,
           contextual_description: fd.get("context"),
           exposure: {
             likelihood: Number(fd.get("likelihood") || 3),
@@ -166,10 +203,17 @@ function ResultingForm({ graphId, actionId }: { graphId: string; actionId: strin
       </label>
       <label>
         How to add the risk
-        <select value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
+        <select
+          value={mode}
+          onChange={(e) => setMode(e.target.value as typeof mode)}
+        >
           <option value="new_risk">Create new Risk</option>
-          <option value="existing_risk_new_exposure">Reuse canonical Risk as a new Exposure</option>
-          <option value="existing_exposure">Converge on an existing Exposure</option>
+          <option value="existing_risk_new_exposure">
+            Reuse canonical Risk as a new Exposure
+          </option>
+          <option value="existing_exposure">
+            Converge on an existing Exposure
+          </option>
         </select>
       </label>
       {mode === "new_risk" && (
@@ -211,15 +255,33 @@ function ResultingForm({ graphId, actionId }: { graphId: string; actionId: strin
           <div className="row">
             <label>
               L
-              <input name="likelihood" type="number" min={1} max={5} defaultValue={3} />
+              <input
+                name="likelihood"
+                type="number"
+                min={1}
+                max={5}
+                defaultValue={3}
+              />
             </label>
             <label>
               I
-              <input name="impact" type="number" min={1} max={5} defaultValue={3} />
+              <input
+                name="impact"
+                type="number"
+                min={1}
+                max={5}
+                defaultValue={3}
+              />
             </label>
             <label>
               C
-              <input name="confidence" type="number" min={1} max={5} defaultValue={3} />
+              <input
+                name="confidence"
+                type="number"
+                min={1}
+                max={5}
+                defaultValue={3}
+              />
             </label>
           </div>
         </>

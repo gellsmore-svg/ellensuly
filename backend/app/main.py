@@ -1,13 +1,40 @@
 from contextlib import asynccontextmanager
+from hmac import compare_digest
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app import __version__
 from app.api.router import api_router
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.persistence.store import MemoryStore, create_mongo_store
 from app.seed.supplier_continuity import load_demo
+
+
+def _is_loopback(host: str) -> bool:
+    name = (host or "").strip().lower()
+    if name.startswith("[") and name.endswith("]"):
+        name = name[1:-1]
+    return name in {"127.0.0.1", "localhost", "::1"}
+
+
+def _require_exposure_token(settings: Settings) -> None:
+    token = settings.api_token
+    if token and any(ch.isspace() for ch in token):
+        raise RuntimeError("API_TOKEN must not contain whitespace")
+    if not _is_loopback(settings.host) and not token:
+        raise RuntimeError(
+            "Refusing to listen on a non-loopback host without API_TOKEN. "
+            "Bind 127.0.0.1 or set API_TOKEN."
+        )
+
+
+def _presented_token(request: Request) -> bytes:
+    header = request.headers.get("authorization", "")
+    if header.lower().startswith("bearer "):
+        return header[7:].strip().encode("utf-8")
+    return request.headers.get("x-ellensuly-token", "").encode("utf-8")
 
 
 @asynccontextmanager
@@ -38,6 +65,7 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    _require_exposure_token(settings)
     app = FastAPI(
         title="Ellensúly API",
         summary="Risk, in context.",
@@ -55,11 +83,23 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origin_list or ["*"],
+        allow_origins=settings.cors_origin_list,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    if settings.api_token:
+        expected = settings.api_token.encode("utf-8")
+
+        @app.middleware("http")
+        async def require_token(request: Request, call_next):
+            if request.url.path == "/health":
+                return await call_next(request)
+            presented = _presented_token(request)
+            if not compare_digest(presented, expected):
+                return JSONResponse({"detail": "unauthorized"}, status_code=401)
+            return await call_next(request)
+
     app.include_router(api_router)
 
     @app.get("/health")

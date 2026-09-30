@@ -8,8 +8,10 @@ class Settings(BaseSettings):
 
     mongodb_uri: str = "mongodb://localhost:27017"
     mongodb_db: str = "ellensuly"
-    host: str = "0.0.0.0"
+    host: str = "127.0.0.1"
     port: int = 8000
+    # Required when host is not loopback. Sent as Authorization: Bearer.
+    api_token: str = ""
     cors_origins: str = (
         "http://localhost:5173,http://localhost:8080,"
         "http://127.0.0.1:5173,http://127.0.0.1:8080"
@@ -18,7 +20,12 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> list[str]:
-        return [part.strip() for part in self.cors_origins.split(",") if part.strip()]
+        origins = []
+        for part in self.cors_origins.split(","):
+            origin = part.strip()
+            if origin and origin != "*":
+                origins.append(origin)
+        return origins
 
 
 @lru_cache

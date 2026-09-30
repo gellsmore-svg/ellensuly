@@ -13,12 +13,14 @@ import type {
 } from "./types";
 
 const base = (import.meta.env.VITE_API_BASE as string | undefined) || "";
+const apiToken = (import.meta.env.VITE_API_TOKEN as string | undefined) || "";
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${base}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...(apiToken ? { Authorization: `Bearer ${apiToken}` } : {}),
       ...(init?.headers ?? {}),
     },
   });

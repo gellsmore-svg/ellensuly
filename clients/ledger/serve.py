@@ -35,6 +35,9 @@ class Handler(SimpleHTTPRequestHandler):
         for key in ("Content-Type", "Accept"):
             if self.headers.get(key):
                 req.add_header(key, self.headers[key])
+        token = os.environ.get("API_TOKEN", "")
+        if token and self.path != "/health":
+            req.add_header("Authorization", f"Bearer {token}")
         try:
             with urllib.request.urlopen(req, timeout=30) as res:
                 status, headers, payload = res.status, res.headers, res.read()

@@ -93,6 +93,7 @@ The browser never talks to MongoDB. The Python API is the only contract a user i
 
 - Persistence, domain rules, graph analysis and teaching copy live in `backend/`.
 - `frontend/` is one client of that API. Another UI can be added later without changing storage.
+- `clients/ledger/` is a second, independent client: no framework and no build step, decision-first rather than canvas-first. See [its README](clients/ledger/README.md).
 - OpenAPI: [http://localhost:8000/api/docs](http://localhost:8000/api/docs)
 
 See [docs/architecture.md](docs/architecture.md).
@@ -111,6 +112,7 @@ See [docs/architecture.md](docs/architecture.md).
 cd backend && . .venv/bin/activate && pytest
 cd frontend && npm test
 cd frontend && npx playwright install chromium && npm run test:e2e
+cd clients/ledger && node --test test/
 ```
 
 ## Name

@@ -42,5 +42,18 @@ services:
       api:
         condition: service_healthy
 
+  # A second, independent client of the same API. Opt in with:
+  #   docker compose --profile ledger up --build
+  ledger:
+    build:
+      context: ./clients/ledger
+    profiles: ["ledger"]
+    restart: unless-stopped
+    ports:
+      - "${LEDGER_PORT:-8090}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
 volumes:
   ellensuly-mongo:

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ellensúly · Ledger</title>
+    <meta name="description" content="A decision-first client for the Ellensúly API: compare the risk landscapes that alternative actions open." />
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      try {
+        const t = localStorage.getItem("ledger.theme");
+        if (t) document.documentElement.dataset.theme = t;
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="masthead">
+      <a class="wordmark" href="#/">
+        <span class="wordmark-name">Ellensúly</span>
+        <span class="wordmark-sub">Ledger</span>
+      </a>
+      <nav class="crumbs" id="crumbs" aria-label="Location"></nav>
+      <div class="masthead-tools">
+        <label class="search">
+          <span class="visually-hidden">Search risks, exposures and actions</span>
+          <input id="search" type="search" placeholder="Search  /" autocomplete="off" />
+        </label>
+        <button class="icon-btn" id="theme" type="button" aria-label="Toggle light or dark theme" title="Theme">◐</button>
+        <button class="icon-btn" id="glossary-btn" type="button" aria-label="Open glossary" title="Glossary (?)">?</button>
+      </div>
+    </header>
+    <div id="search-results" class="search-results" hidden></div>
+    <main id="main" tabindex="-1"></main>
+    <aside id="inspector" class="inspector" aria-label="Inspector" hidden></aside>
+    <dialog id="dialog"></dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="src/app.js"></script>
+  </body>
+</html>

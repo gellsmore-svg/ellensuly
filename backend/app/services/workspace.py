@@ -33,6 +33,7 @@ from app.services.graph import (
     neighbourhood,
     node_id,
     paths_between,
+    response_roots,
 )
 
 
@@ -291,8 +292,10 @@ async def analysis_branch(store: Store, graph_id: str, action_id: str):
     bundle = await bundle_for(store, graph_id)
     exposures = await store.list_exposures(graph_id)
     g = build_digraph(exposures, bundle.actions, bundle.relationships)
-    nodes = sorted(decision_branch(g, node_id("action", action_id)))
-    return {"action_id": action_id, "node_ids": nodes}
+    action_nid = node_id("action", action_id)
+    nodes = sorted(decision_branch(g, action_nid))
+    roots = sorted(response_roots(g, action_nid))
+    return {"action_id": action_id, "node_ids": nodes, "roots": roots}
 
 
 async def analysis_compare(store: Store, graph_id: str, exposure_id: str):

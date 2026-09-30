@@ -66,8 +66,16 @@ def build_digraph(
     return g
 
 
-def _reachable(g: nx.DiGraph, origin: str, kind_filter: str | None = None) -> set[str]:
-    """BFS with an explicit visited set. Safe in the presence of cycles."""
+def _reachable(
+    g: nx.DiGraph,
+    origin: str,
+    kind_filter: str | None = None,
+    stop_at: set[str] | frozenset[str] = frozenset(),
+) -> set[str]:
+    """BFS with an explicit visited set. Safe in the presence of cycles.
+
+    Nodes in ``stop_at`` are never entered: they are neither counted nor expanded.
+    """
     seen: set[str] = set()
     queue: deque[str] = deque([origin])
     found: set[str] = set()
@@ -80,7 +88,7 @@ def _reachable(g: nx.DiGraph, origin: str, kind_filter: str | None = None) -> se
             if kind_filter is None or g.nodes[current]["kind"] == kind_filter:
                 found.add(current)
         for nxt in g.successors(current):
-            if nxt not in seen:
+            if nxt not in seen and nxt not in stop_at:
                 queue.append(nxt)
     return found
 
@@ -507,11 +515,43 @@ def paths_between(g: nx.DiGraph, source: str, target: str, cutoff: int = 10) -> 
     return records
 
 
-def decision_branch(g: nx.DiGraph, action_nid: str) -> set[str]:
-    """The landscape opened by choosing this action: the action plus everything downstream."""
+def response_roots(g: nx.DiGraph, action_nid: str) -> set[str]:
+    """The exposures this action is recorded as a response to (has_response edges)."""
     if action_nid not in g:
         return set()
-    return {action_nid} | _reachable(g, action_nid)
+    return {
+        pred
+        for pred in g.predecessors(action_nid)
+        if g.nodes[pred]["kind"] == "exposure"
+        and g.edges[pred, action_nid].get("semantics") == "has_response"
+    }
+
+
+def decision_branch(g: nx.DiGraph, action_nid: str) -> set[str]:
+    """The landscape opened by choosing this action.
+
+    The action, the risk(s) it responds to, and everything downstream of the action,
+    without walking back out through those risks. An effect on the risk being answered
+    (``decreases`` it, say) is the action doing its job; following that edge onward would
+    pull every sibling alternative's consequences into this branch.
+    """
+    if action_nid not in g:
+        return set()
+    roots = response_roots(g, action_nid)
+    return {action_nid} | roots | _reachable(g, action_nid, stop_at=roots)
+
+
+def _returns_to(g: nx.DiGraph, sources: set[str], target: str) -> list[dict]:
+    """Directed edges from the branch back into ``target``: e.g. an action decreasing its root."""
+    out = []
+    for src in sorted(sources):
+        if not g.has_edge(src, target):
+            continue
+        data = g.edges[src, target]
+        if data.get("reverse") or not data["relationship"].directed:
+            continue
+        out.append({"node_id": src, "relationship_id": data["id"], "semantics": data["semantics"]})
+    return out
 
 
 def compare_actions(
@@ -542,10 +582,15 @@ def compare_actions(
 
     for aid in candidate_actions:
         action: Action = g.nodes[aid]["action"]
+        # Do not walk back out through the risk being decided: that would count every
+        # sibling alternative's consequences as this action's landscape.
+        stop = {origin} | response_roots(g, aid)
         immediate = [
-            t for t in g.successors(aid) if g.nodes[t]["kind"] == "exposure"
+            t for t in g.successors(aid) if g.nodes[t]["kind"] == "exposure" and t not in stop
         ]
-        down = _reachable(g, aid, kind_filter="exposure")
+        branch = _reachable(g, aid, stop_at=stop)
+        down = {n for n in branch if g.nodes[n]["kind"] == "exposure"}
+        returns = _returns_to(g, {aid} | branch, origin)
         downstream_by_action[aid] = down
         highest = None
         high_imp_low_l: list[dict] = []
@@ -576,13 +621,11 @@ def compare_actions(
             m = analysis.metrics.get(nid)
             if m and m.depth_from_focal is not None:
                 max_depth = max(max_depth, m.depth_from_focal)
-        cycles_entered = sorted(
-            {
-                cid
-                for nid in {aid} | down
-                for cid in (analysis.metrics.get(nid).cycle_ids if analysis.metrics.get(nid) else [])
-            }
-        )
+        # Node cycle_ids are widened to whole strongly connected components, which would
+        # credit this action with sibling loops through the shared root. Count only listed
+        # cycles that lie entirely within this branch and the risk it answers.
+        within = {aid} | branch | stop
+        cycles_entered = sorted(c.id for c in analysis.cycles if set(c.node_ids) <= within)
         landscapes.append(
             ActionLandscape(
                 action_id=action.id,
@@ -599,6 +642,7 @@ def compare_actions(
                 cycles_entered=cycles_entered,
                 resulting_exposure_ids=[parse_node_id(n)[1] for n in immediate],
                 downstream_exposure_ids=[parse_node_id(n)[1] for n in down],
+                returns_to_origin=returns,
             )
         )
 

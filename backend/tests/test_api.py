@@ -159,3 +159,22 @@ async def test_seeded_demo_endpoints(seeded_client):
     assert heatmap_register.status_code == 200
     scores = [row["exposure"]["exposure"]["score"] for row in heatmap_register.json()]
     assert any(s is not None for s in scores)
+
+
+async def test_reach_endpoints_stop_at_the_decided_risk(seeded_client):
+    graphs, *_ = build_demo()
+    gid = graphs[0].id
+    compare = await seeded_client.get(
+        f"/api/v1/graphs/{gid}/analysis/compare-actions",
+        params={"exposure_id": "exp-supplier-delay"},
+    )
+    lands = {land["action_id"]: land for land in compare.json()}
+    assert lands["act-second-supplier"]["downstream_reachable_risks"] == 10
+    assert lands["act-second-supplier"]["returns_to_origin"][0]["semantics"] == "decreases"
+
+    path = await seeded_client.get(
+        f"/api/v1/graphs/{gid}/analysis/decision-path", params={"action_id": "act-inhouse"}
+    )
+    body = path.json()
+    assert body["roots"] == ["exposure:exp-supplier-delay"]
+    assert "action:act-second-supplier" not in body["node_ids"]

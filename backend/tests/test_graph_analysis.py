@@ -1,7 +1,7 @@
 from app.models.assessment import ImpactAssessment
 from app.models.entities import Action, Relationship, Risk, RiskExposure
 from app.seed.supplier_continuity import build_demo
-from app.services.graph import analyse, build_digraph, compare_actions, node_id
+from app.services.graph import analyse, build_digraph, compare_actions, decision_branch, node_id
 
 
 def _exp(eid, gid, rid, L=3, I=3, C=3):
@@ -113,3 +113,116 @@ def test_branching_from_root():
     root = node_id("exposure", "exp-supplier-delay")
     action_children = [n for n in g.successors(root) if g.nodes[n]["kind"] == "action"]
     assert len(action_children) == 3
+
+
+def _demo_landscapes():
+    graphs, risks, exposures, actions, rels = build_demo()
+    analysis = analyse(exposures, actions, rels, risks, graphs[0].focal_exposure_ids)
+    lands = compare_actions(exposures, actions, rels, analysis, "exp-supplier-delay")
+    return analysis, {land.action_id: land for land in lands}
+
+
+def test_reach_does_not_walk_back_through_the_decided_risk():
+    _, lands = _demo_landscapes()
+    # Both of these decrease the supplier-delay risk they answer. Walking on through it
+    # used to credit each with all 13 exposures, including its siblings' consequences.
+    assert lands["act-second-supplier"].downstream_reachable_risks == 10
+    assert lands["act-inhouse"].downstream_reachable_risks == 8
+    assert lands["act-accept"].downstream_reachable_risks == 2
+    for land in lands.values():
+        assert "exp-supplier-delay" not in land.downstream_exposure_ids
+    inhouse = set(lands["act-inhouse"].downstream_exposure_ids)
+    siblings_only = {
+        "exp-qualification-cost",
+        "exp-coordination",
+        "exp-contract-lock",
+        "exp-knowledge",
+    }
+    assert not inhouse & siblings_only
+
+
+def test_effect_on_the_decided_risk_is_reported_not_traversed():
+    _, lands = _demo_landscapes()
+    returns = lands["act-second-supplier"].returns_to_origin
+    assert returns == [
+        {
+            "node_id": "action:act-second-supplier",
+            "relationship_id": "rel-second-decreases",
+            "semantics": "decreases",
+        }
+    ]
+    assert lands["act-accept"].returns_to_origin == []
+
+
+def test_shared_exposures_and_cycles_reflect_the_branch_only():
+    analysis, lands = _demo_landscapes()
+    # In-house and second supplier genuinely share the integration sub-branch.
+    shared = set(lands["act-inhouse"].shared_with["act-second-supplier"])
+    assert "exp-integration" in shared
+    assert "exp-qualification-cost" not in shared
+    by_members = {frozenset(c.node_ids): c.id for c in analysis.cycles}
+    hire_cycle = by_members[frozenset({"action:act-hire", "exposure:exp-capacity-inhouse"})]
+    own = {land_id: by_members[frozenset({f"action:{land_id}", "exposure:exp-supplier-delay"})]
+           for land_id in ("act-second-supplier", "act-inhouse")}
+    assert lands["act-inhouse"].cycles_entered == sorted([hire_cycle, own["act-inhouse"]])
+    assert lands["act-second-supplier"].cycles_entered == [own["act-second-supplier"]]
+    assert lands["act-accept"].cycles_entered == []
+
+
+def test_immediate_risks_exclude_the_decided_risk():
+    _, lands = _demo_landscapes()
+    second = lands["act-second-supplier"]
+    assert "exp-supplier-delay" not in second.resulting_exposure_ids
+    assert second.immediate_resulting_risks == 5
+    assert lands["act-inhouse"].immediate_resulting_risks == 2
+
+
+def test_decision_branch_keeps_its_root_but_not_sibling_branches():
+    _, _, exposures, actions, rels = build_demo()
+    g = build_digraph(exposures, actions, rels)
+    branch = decision_branch(g, node_id("action", "act-inhouse"))
+    assert node_id("exposure", "exp-supplier-delay") in branch
+    assert node_id("action", "act-second-supplier") not in branch
+    assert node_id("action", "act-accept") not in branch
+    assert branch == {
+        node_id("action", "act-inhouse"),
+        node_id("exposure", "exp-supplier-delay"),  # the root it answers, kept as context
+        node_id("action", "act-hire"),
+        node_id("action", "act-harmonise"),
+        *(
+            node_id("exposure", e)
+            for e in (
+                "exp-capacity-inhouse",
+                "exp-schedule-elsewhere",
+                "exp-programme-delay",
+                "exp-customer-commit",
+                "exp-integration",
+                "exp-rework",
+                "exp-quality-variance",
+                "exp-capacity-rework",
+            )
+        ),
+    }
+
+
+def test_indirect_path_back_to_the_root_is_reported_and_stopped():
+    # r -has_response-> a -creates-> x -causes-> r -has_response-> b -creates-> y
+    exposures = [_exp("r", "g", "R"), _exp("x", "g", "X"), _exp("y", "g", "Y")]
+    actions = [Action(id="a", graph_id="g", title="A"), Action(id="b", graph_id="g", title="B")]
+    rels = [
+        _rel("1", "exposure", "r", "action", "a", "has_response"),
+        _rel("2", "action", "a", "exposure", "x"),
+        _rel("3", "exposure", "x", "exposure", "r", "causes"),
+        _rel("4", "exposure", "r", "action", "b", "has_response"),
+        _rel("5", "action", "b", "exposure", "y"),
+    ]
+    risks = [Risk(id=i, title=i) for i in "RXY"]
+    analysis = analyse(exposures, actions, rels, risks, ["r"])
+    lands = {
+        land.action_id: land for land in compare_actions(exposures, actions, rels, analysis, "r")
+    }
+    assert lands["a"].downstream_exposure_ids == ["x"]
+    assert lands["a"].returns_to_origin == [
+        {"node_id": "exposure:x", "relationship_id": "3", "semantics": "causes"}
+    ]
+    assert "a" not in lands["b"].shared_with

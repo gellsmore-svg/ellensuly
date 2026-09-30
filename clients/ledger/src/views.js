@@ -193,19 +193,21 @@ function landscapeFacts(app, landscape, reading) {
   const { ix } = app.state;
   const highest = landscape.highest_exposure ? ix.exposures.get(landscape.highest_exposure.exposure_id) : null;
   const facts = [
-    ["Opens directly", `${reading.directExposures.length} exposure${reading.directExposures.length === 1 ? "" : "s"}`],
-    [
-      "Via feedback",
-      reading.viaFeedback.length
-        ? `${reading.viaFeedback.length} more (API reach: ${landscape.downstream_reachable_risks})`
-        : "none",
-    ],
+    ["Reaches", `${landscape.downstream_reachable_risks} exposure${landscape.downstream_reachable_risks === 1 ? "" : "s"}`],
     ["Immediate", String(landscape.immediate_resulting_risks)],
     ["Deepest chain", landscape.depth != null ? `${landscape.depth} steps` : "–"],
   ];
   return h(
     "div.facts",
     h("dl", facts.map(([k, v]) => [h("dt", k), h("dd", v)])),
+    reading.returns.length
+      ? h("p.fact-line", h("span.kicker", "Acts on this risk"), " ",
+          h("span.ref-list", reading.returns.map((r, i) => [
+            i ? h("span.sep", "·") : null,
+            h("span.verb.cooling", human(r.semantics)),
+            r.node_id === nid("action", landscape.action_id) ? null : [" via ", nodeRef(app, r.node_id)],
+          ])))
+      : null,
     highest ? h("p.fact-line", h("span.kicker", "Highest L × I"), " ", nodeRef(app, nid("exposure", highest.id), [chip(highest, { compact: true }), " ", highest.risk_title])) : null,
     landscape.high_impact_low_likelihood.length
       ? h("p.fact-line", h("span.kicker", "Severe even if unlikely"), " ",
@@ -317,7 +319,7 @@ export function alternativesView(app) {
       "div.alt-after",
       h("button.btn", { type: "button", onclick: () => app.dialogs.alternative(root.id) }, "+ Add an alternative"),
       compare?.[0]?.caveat ? h("p.caveat", compare[0].caveat) : null,
-      h("p.caveat", "Letters beside a risk mark the other alternatives that also lead to it. “Via feedback” counts exposures the API reaches only by passing back through the risk being decided."),
+      h("p.caveat", "Letters beside a risk mark the other alternatives that also lead to it. Reach stops at the risk being decided: an effect on it is shown, not followed onward."),
     ),
   );
 }
@@ -333,7 +335,7 @@ function legend(lens) {
     urgency: [h("span.legend-glyph", "◫"), "Inner ring: proximity (how soon). Outer ring: velocity (how fast)."],
     uncertainty: [h("span.legend-glyph.hatch-sw"), "Hatched and dashed: confidence is low. Not the same as likely."],
     connectivity: [h("span.legend-glyph", "⊕ ↺ ◆"), "Convergence · cycle member · on many paths. Border weight: betweenness."],
-    decision: [h("span.legend-glyph", "▮ ▯"), "Bright: direct landscape. Half: reached only via feedback. Faint: not this branch."],
+    decision: [h("span.legend-glyph", "▮ ▯"), "Bright: the risk answered and the landscape this action opens. Faint: not this branch."],
   }[lens];
   return h("p.legend", rows);
 }

@@ -50,24 +50,24 @@ test("cascade is cycle-safe and marks repeats instead of re-expanding", () => {
   assert.ok(!marks.includes("truncated"));
 });
 
-test("direct landscape is a subset of the server landscape; the rest arrives via feedback", () => {
+test("client cascade and server landscape agree: reach stops at the decided risk", () => {
   for (const landscape of compare) {
     const reading = readLandscape(ix, landscape, FOCAL);
-    for (const id of reading.directExposures) assert.ok(landscape.downstream_exposure_ids.includes(id), id);
-    assert.equal(
-      reading.directExposures.length + reading.viaFeedback.length,
-      landscape.downstream_exposure_ids.length,
-    );
+    const drawn = [...directReach(reading.tree)].filter((n) => n.startsWith("exposure:")).map((n) => n.slice(9));
+    assert.deepEqual(drawn.sort(), [...landscape.downstream_exposure_ids].sort(), landscape.action_title);
+    assert.ok(!reading.exposures.includes(FOCAL));
   }
-  const inhouse = readLandscape(ix, compare.find((l) => l.action_id === "act-inhouse"), FOCAL);
-  assert.ok(inhouse.viaFeedback.includes("exp-qualification-cost"), "second-supplier's risks only arrive via the root");
-  assert.ok(!inhouse.directExposures.includes("exp-qualification-cost"));
+  const byId = new Map(compare.map((l) => [l.action_id, l]));
+  assert.equal(byId.get("act-second-supplier").downstream_reachable_risks, 10);
+  assert.equal(byId.get("act-inhouse").downstream_reachable_risks, 8);
+  assert.deepEqual(readLandscape(ix, byId.get("act-inhouse"), FOCAL).returns.map((r) => r.semantics), ["decreases"]);
 });
 
-test("shared index finds exposures reached by more than one alternative", () => {
+test("shared index uses the server landscapes", () => {
   const readings = new Map(compare.map((l) => [l.action_id, readLandscape(ix, l, FOCAL)]));
   const shared = sharedIndex(readings);
   assert.deepEqual(shared.get("exp-programme-delay").sort(), ["act-accept", "act-inhouse", "act-second-supplier"]);
+  assert.ok(!shared.get("exp-qualification-cost").includes("act-inhouse"), "a sibling's risk is no longer credited");
 });
 
 test("register sorts disagree: the impact order is not the score order", () => {

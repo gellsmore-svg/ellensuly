@@ -32,7 +32,7 @@ Plain `docker compose up` is unchanged; the ledger is opt-in.
 **Alternatives** (the default). Pick the risk being decided. The focal exposure comes first, and exposures with no responses yet are listed too. Each recorded response becomes a lettered column showing:
 
 - its decision status, editable inline;
-- what the API's `compare-actions` landscape says about it: how many exposures it opens immediately, how deep the chain runs, the highest L × I, risks that are severe even if unlikely, weakly evidenced risks, and cycles it enters;
+- what the API's `compare-actions` landscape says about it: how many exposures it reaches and opens immediately, how deep the chain runs, the highest L × I, risks that are severe even if unlikely, weakly evidenced risks, cycles it enters, and any effect on the risk being decided;
 - **what it sets in motion**: a consequence cascade built from the relationships, with the verb on every step;
 - letters beside a risk naming the other alternatives that also lead to it.
 
@@ -54,18 +54,11 @@ There is no "best" column and no total. The layout is a comparison, not a rankin
 
 Actions add resulting risks through `/workflow/resulting-risk`, with all three modes offered explicitly: a new risk, a known risk as a new exposure, or convergence on an exposure already on the map.
 
-## Direct landscape vs. via feedback
+## Reach stops at the risk being decided
 
-Some responses act back on the risk they answer. In the demo, *Add a second supplier* `decreases` *Critical supplier may miss delivery date*. That edge closes a cycle through the root of the decision, so everything downstream of the root, including the other alternatives' consequences, becomes reachable from each alternative. The API reports this honestly: `compare-actions` gives both *Add a second supplier* and *Bring work in-house* a reach of 13, which is every exposure in the graph.
+Some responses act back on the risk they answer. In the demo, *Add a second supplier* `decreases` *Critical supplier may miss delivery date*. The API does not follow that edge onward when it counts reach: doing so would credit each alternative with its siblings' consequences, and in the demo it made both supplier options appear to reach all 13 exposures. Instead, `compare-actions` reports such edges in `returns_to_origin`, and the ledger shows them as **Acts on this risk** in the column. The decision-path lens lights the answered risk and the branch's own landscape.
 
-The ledger shows both readings:
-
-- **Opens directly**: exposures reached without passing back through the risk being decided or an earlier step of the same branch.
-- **Via feedback**: the rest of the API's reach.
-
-In the demo that splits 13 into 10 + 3 for the second supplier and 8 + 5 for bringing work in-house. The decision-path lens uses the same split: bright for the direct landscape, half-tone for nodes reached only via feedback, faint for the rest.
-
-This is presentation traversal over edges the API already returned, the same allowance `docs/architecture.md` makes for path highlighting. Metrics, cycles, convergence, insights and landscapes all come from the server.
+Metrics, cycles, convergence, insights, landscapes and decision paths all come from the server. The client only draws the consequence tree from edges the API already returned.
 
 ## Files
 
@@ -74,7 +67,7 @@ index.html     page shell
 styles.css     the whole visual system; light and dark themes, print styles
 serve.py       stdlib static server + API proxy
 src/api.js     every endpoint the client uses, nothing else
-src/model.js   pure: bundle indexing, cascades, direct/feedback reading, register sorts
+src/model.js   pure: bundle indexing, consequence cascades, register sorts
 src/layout.js  pure: layered layout (DFS back edges, longest-path ranks, dummy
                waypoints, barycentre ordering, isotonic vertical placement)
 src/map.js     SVG graph and lenses

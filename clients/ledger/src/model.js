@@ -2,7 +2,7 @@
 //
 // Analysis (metrics, cycles, convergence, landscapes) comes from the server. What lives
 // here is presentation traversal over edges the server already returned: indexing,
-// consequence cascades and the direct/feedback split used to read a landscape.
+// consequence cascades for drawing, and register sorts.
 
 export const nid = (kind, id) => `${kind}:${id}`;
 export const splitNid = (n) => {
@@ -146,37 +146,25 @@ export function directReach(tree) {
   return seen;
 }
 
-/** Feedback leaves in a cascade: where the branch re-enters something above it. */
-export function feedbackTargets(tree) {
-  const found = [];
-  const visit = (node) => {
-    if (node.mark === "feedback") found.push({ id: node.id, via: node.via });
-    node.children.forEach(visit);
-  };
-  visit(tree);
-  return found;
-}
-
 /**
- * Read a server landscape (compare-actions item) against the direct cascade.
- * `server` is what the API says is reachable; `direct` is reached without
- * passing back through the decision's root or an ancestor.
+ * A compare-actions landscape, plus the consequence tree used to draw it.
+ * Reach, shared exposures and returns to the decided risk all come from the API;
+ * the tree only lays out the same edges for reading.
  */
 export function readLandscape(ix, landscape, rootExposureId) {
-  const start = nid("action", landscape.action_id);
-  const tree = cascade(ix, start, { root: nid("exposure", rootExposureId) });
-  const direct = directReach(tree);
-  const directExposures = [...direct].filter((n) => n.startsWith("exposure:")).map((n) => splitNid(n).id);
-  const serverExposures = landscape.downstream_exposure_ids || [];
-  const viaFeedback = serverExposures.filter((id) => !directExposures.includes(id));
-  return { tree, directExposures, viaFeedback, feedback: feedbackTargets(tree) };
+  const tree = cascade(ix, nid("action", landscape.action_id), { root: nid("exposure", rootExposureId) });
+  return {
+    tree,
+    exposures: landscape.downstream_exposure_ids || [],
+    returns: landscape.returns_to_origin || [],
+  };
 }
 
-/** Which alternatives' direct landscapes include each exposure. */
+/** Which alternatives' landscapes include each exposure. */
 export function sharedIndex(readings) {
   const index = new Map();
   for (const [actionId, reading] of readings) {
-    for (const expId of reading.directExposures) {
+    for (const expId of reading.exposures) {
       if (!index.has(expId)) index.set(expId, []);
       index.get(expId).push(actionId);
     }

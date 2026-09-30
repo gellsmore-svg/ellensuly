@@ -184,9 +184,7 @@ export function renderMap(ix, lay, ctx) {
 
   const dim = (n) => {
     if (ctx.lens !== "decision" || !ctx.decision) return "";
-    if (ctx.decision.direct.has(n)) return "lit";
-    if (ctx.decision.feedback.has(n)) return "half";
-    return "dimmed";
+    return ctx.decision.lit.has(n) ? "lit" : "dimmed";
   };
 
   const edgeLayer = s("g", { class: "edges" });
@@ -195,7 +193,7 @@ export function renderMap(ix, lay, ctx) {
   for (const edge of ix.edges) {
     const fam = edgeFamily(edge.rel, ctx.taxonomy);
     const both = [dim(edge.source), dim(edge.target)];
-    const edgeDim = both.includes("dimmed") ? "dimmed" : both.includes("half") ? "half" : "";
+    const edgeDim = both.includes("dimmed") ? "dimmed" : "";
     const hot = ctx.selected && (edge.source === ctx.selected || edge.target === ctx.selected) ? "hot" : "";
     let d;
     let mid;

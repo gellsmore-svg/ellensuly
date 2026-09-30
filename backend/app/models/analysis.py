@@ -78,6 +78,13 @@ class ActionLandscape(BaseModel):
     shared_with: dict[str, list[str]] = Field(default_factory=dict)
     resulting_exposure_ids: list[str] = Field(default_factory=list)
     downstream_exposure_ids: list[str] = Field(default_factory=list)
+    returns_to_origin: list[dict] = Field(
+        default_factory=list,
+        description=(
+            "Edges from this branch back into the exposure being decided (e.g. the action "
+            "decreases it). Reported here; never walked through when counting reach."
+        ),
+    )
     caveat: str = (
         "These figures describe the landscape this action opens. "
         "They are not a ranking and must not be summed into a 'total risk' score."

@@ -2,7 +2,7 @@ import { api } from "./api.js";
 import { h, mount } from "./dom.js";
 import { layout } from "./layout.js";
 import { LENSES, nodeSize } from "./map.js";
-import { cascade, decisionPoints, directReach, indexBundle, nid, readLandscape, sharedIndex, splitNid, title } from "./model.js";
+import { decisionPoints, indexBundle, nid, readLandscape, sharedIndex, splitNid, title } from "./model.js";
 import * as V from "./views.js";
 
 const $ = (sel) => document.querySelector(sel);
@@ -138,15 +138,8 @@ async function loadDecisionReach() {
   state.decisionReach = null;
   const actionId = state.decisionAction;
   if (!actionId || !state.ix?.actions.has(actionId)) return;
-  const start = nid("action", actionId);
-  const server = await api.decisionPath(state.graphId, actionId);
-  // The direct landscape stops where the branch re-enters the risk it responds to.
-  const roots = (state.ix.inc.get(start) || []).filter((e) => e.rel.semantics === "has_response").map((e) => e.source);
-  const tree = cascade(state.ix, start, { root: roots[0] || null });
-  const direct = directReach(tree);
-  roots.forEach((r) => direct.add(r));
-  const feedback = new Set(server.node_ids.filter((n) => !direct.has(n)));
-  state.decisionReach = { direct, feedback };
+  const branch = await api.decisionPath(state.graphId, actionId);
+  state.decisionReach = { lit: new Set(branch.node_ids), roots: new Set(branch.roots || []) };
 }
 
 async function refresh() {

@@ -66,6 +66,8 @@ For alternative Actions on an exposure, Ellensúly reports the **landscapes**:
 
 It does not declare a winner. Summing ordinal scores across a branch is forbidden.
 
+A landscape never walks back out through the exposure being decided. An action that `decreases` the risk it answers is doing its job; if reach followed that edge onward, every sibling alternative's consequences would be counted as this action's landscape. Such edges are reported separately (`returns_to_origin`), and the same rule bounds the decision-path lens, which keeps the answered risk in view as the branch's root.
+
 ## Future quantitative room
 
 Optional `quantitative_likelihood` already accepts point, range, frequency, or an opaque distribution payload. v1 does not run Monte Carlo, expected loss, or influence diagrams. The schema does not block them.

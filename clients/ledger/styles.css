@@ -423,7 +423,6 @@ body.has-inspector main { padding-right: calc(var(--insp-w) + var(--gutter)); }
 .map .edge-label.cooling text { fill: var(--edge-cooling); }
 .map .edge-label.hot text { font-weight: 700; }
 .map .dimmed { opacity: .16; }
-.map .half { opacity: .5; }
 .map.lens-decision .node.lit .shape { stroke-width: 2px; }
 
 /* ------------------------------------------------------------ register */

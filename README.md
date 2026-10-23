@@ -30,7 +30,7 @@ A counter-risk is not a verdict that an action is wrong. It is part of the lands
 ## Run locally
 
 ```bash
-git clone <this-repository>
+git clone https://github.com/gellsmore-svg/ellensuly
 cd ellensuly
 cp .env.example .env
 docker compose up --build
@@ -45,14 +45,17 @@ WEB_PORT=8088 docker compose up --build
 | Service | Port |
 | --- | --- |
 | Web UI | 8080 (or `WEB_PORT`) |
+| Ledger client | 8090 (or `LEDGER_PORT`) |
 | API (OpenAPI) | 8000 (`/api/docs`) |
 | MongoDB | internal to Compose (not published) |
+
+All ports bind to `127.0.0.1` only.
 
 The demonstration **Supplier continuity decision** graph is seeded on first start.
 
 ### Developer mode (no Docker for the app)
 
-MongoDB is still required for persistence. If it is not reachable, the API falls back to an in-memory store so the UI can be explored.
+MongoDB is still required for persistence. If it is not reachable, the API **silently** falls back to an in-memory store so the UI can be explored, and everything you change is lost when the API stops. Check which store is active with `curl http://localhost:8000/health` (`"store": "mongo"` or `"memory"`).
 
 ```bash
 # terminal 1
@@ -86,6 +89,12 @@ curl -X POST http://localhost:8000/api/v1/seed
 7. Recognise shared / convergent exposures and reused canonical risks.
 8. Read a five-axis profile (likelihood, impact, immediacy, velocity, uncertainty).
 9. Learn something from the **structure** of the graph that a spreadsheet would hide.
+
+## Limits of v1 (deliberate)
+
+Single user only. There is no Monte Carlo simulation. Graph layout is not
+saved unless you export it. Details are in the
+[five-perspective review](docs/review.md).
 
 ## Discrete UI and datastore
 
